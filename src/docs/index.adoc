@@ -1,0 +1,121 @@
+= GR8 CRM - Project Management Plugin
+Göran Ehrsson <goran@technipelago.se>
+:description: Official documentation for the GR8 CRM Project Management Plugin
+:keywords: groovy, grails, crm, gr8crm, documentation
+:toc:
+:numbered:
+:icons: font
+:imagesdir: ./images
+:source-highlighter: prettify
+:homepage: http://gr8crm.github.io
+:gr8crm: GR8 CRM
+:gr8source: https://github.com/technipelago/grails-crm-project
+:license: This plugin is licensed with http://www.apache.org/licenses/LICENSE-2.0.html[Apache License version 2.0]
+
+== Introduction
+
+{gr8crm} is a set of http://www.grails.org/[Grails Web Application Framework]
+plugins that makes it easy to develop web applications with CRM functionality.
+
+You can find more information about {gr8crm} on the main documentation site {homepage}.
+
+=== Customer Relationship Management
+
+Customer relationship management (CRM) is a system for managing a company’s interactions with current and future customers.
+It involves using technology to organize, automate and synchronize sales, marketing, customer service, and technical support.
+http://en.wikipedia.org/wiki/Customer_relationship_management[Wikipedia]
+
+The {gr8crm} "Ecosystem" currently contains over 40 Grails plugins. For a complete list of plugins see {homepage}.
+
+Each {gr8crm} plugin defines a http://martinfowler.com/bliki/BoundedContext.html[Bounded Context]
+that focus on one specific domain, for example *contact*, *project* or *document*.
+
+== Project Management Plugin
+
+This plugin provide storage and services for managing all kind of projects {gr8crm} applications.
+
+Note that this plugin does not contain any user interface components. This plugin contains domain classes and services only.
+The plugin http://gr8crm.github.io/plugins/crm-project-ui/[crm-project-ui] provides a Twitter Bootstrap based user interface
+for managing projects. +crm-project-ui+ depends on +crm-project+ so you only need to include +crm-project-ui+
+in your BuildConfig.groovy if you want end-user project management features.
+
+== Domain Model
+
+image::project-domain.png[Project Management Domain Model]
+
+== CrmProject
+
+=== Properties
+
+[options="header",cols="15,25,60"]
+|===
+| Property          | Type                  | Description
+| number            | String                | Project ID
+| name              | String                | Project name
+| description       | String                | A longer description of the project (max 2000 characters)
+| username          | String                | The assigned project mamager
+| status            | CrmProjectStatus      | Status of the project
+| date1             | Date                  | Generic date (ex: date of initial contact)
+| date2             | Date                  | Generic date (ex: start date)
+| date3             | Date                  | Generic date (ex: end date)
+| date4             | Date                  | Generic date (ex: archived date)
+| address           | CrmEmbeddedAddress    | Embedded address entity (ex: for real estate projects)
+|===
+
+TIP: The crm-project plugin does not contain properties for monetary information like project value or currency.
+For monetary project like sales leads and opportunities you should use the +crm-sales+ and +crm-sales-ui+ plugins.
+
+=== Methods
+
+CrmContact getCustomer()::
+A convenience method to get the associated contact (organisation) with the role type `customer`.
+
+CrmContact getContact()::
+A convenience method to get the associated contact (person) with the role type `contact`.
+
+== CrmProjectService
+
+Like most other {gr8crm} plugins this plugin have a main service with methods for creating, searching and updating projects.
+
+=== Methods
+
+CrmSalesProject createProject(Map params, boolean save = false)::
+Create a new project.
+
+[source,groovy]
+.Example.groovy
+----
+def activeStatus = crmProjectService.createProjectStatus(name: 'Active', param: 'active', true)
+def acme = crmContactService.createCompany(name: 'ACME Inc.', email: 'info@acme.com',
+        address: [address1: '123 Demo Street', city: 'Groovytown', country: 'US'], true)
+def proj = crmProjectService.createProject(name: 'House construction', customer: acme, true)
+
+assert proj.customer.name == 'ACME Inc.'
+----
+
+def list(Map query, Map params)::
+List projects.
+
+[source,groovy]
+.FindMyProjects.groovy
+----
+List myProjects = crmProjectService.list([username: 'myself'], [sort: 'date1', order: 'desc'])
+----
+
+== Changes
+
+2.4.0:: First public release
+
+== License
+
+{license}
+
+== Source Code
+
+The source code for this plugin is available at {gr8source}
+
+== Contributing
+
+Please report {gr8source}/issues[issues or suggestions].
+
+Want to improve the plugin: Fork the {gr8source}[repository] and send a pull request.
