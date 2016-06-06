@@ -15,6 +15,7 @@ import java.text.DecimalFormat
 class CrmProjectService {
 
     def grailsApplication
+    def crmCoreService
     def crmSecurityService
     def crmContactService
     def crmTagService
@@ -329,6 +330,9 @@ class CrmProjectService {
         if (!m.date1) {
             m.date1 = new java.sql.Date(System.currentTimeMillis())
         }
+        if(params.reference) {
+            m.setReference(params.reference)
+        }
         if (params.customer) {
             def role = new CrmProjectRole(project: m, contact: params.customer, type: customer)
             if (!role.hasErrors()) {
@@ -429,6 +433,10 @@ class CrmProjectService {
         }
     }
 
+    List<CrmProject> findProjectsByReference(Object reference, Map params = [:]) {
+        CrmProject.findAllByRef(crmCoreService.getReferenceIdentifier(reference), params)
+    }
+
     List<CrmProject> findProjectsByContact(CrmContact contact, String role = null, Map params = [:]) {
         CrmProject.createCriteria().list(params) {
             eq('tenantId', contact.tenantId) // This is not necessary, but hopefully it helps the query optimizer
@@ -523,6 +531,10 @@ class CrmProjectService {
                     crmProject.addToRoles(role)
                 }
             }
+        }
+
+        if(params.reference) {
+            crmProject.setReference(params.reference)
         }
 
         if (crmProject.save()) {

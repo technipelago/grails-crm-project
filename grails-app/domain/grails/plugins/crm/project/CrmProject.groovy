@@ -13,11 +13,15 @@ import grails.plugins.sequence.SequenceEntity
 @AuditEntity
 @SequenceEntity
 class CrmProject {
+
+    private def _crmCoreService
+
     String number
     String name
     String description
     CrmProjectStatus status
     String username
+    String ref
     java.sql.Date date1
     java.sql.Date date2
     java.sql.Date date3
@@ -33,6 +37,7 @@ class CrmProject {
         description(maxSize: 2000, nullable: true, widget: 'textarea')
         status()
         username(maxSize: 80, nullable: true)
+        ref(maxSize: 80, nullable: true)
         date1(nullable: true)
         date2(nullable: true)
         date3(nullable: true)
@@ -46,9 +51,10 @@ class CrmProject {
         sort 'number': 'asc'
         number index: 'crm_project_number_idx'
         name index: 'crm_project_name_idx'
+        ref index: 'crm_project_ref_idx'
     }
 
-    static transients = ['customer', 'contact', 'dao']
+    static transients = ['customer', 'contact', 'reference', 'dao']
 
     static taggable = true
     static attachmentable = true
@@ -77,10 +83,30 @@ class CrmProject {
         roles?.find { it.type?.param == 'contact' }?.contact
     }
 
+    transient void setReference(object) {
+        ref = object ? crmCoreService.getReferenceIdentifier(object) : null
+    }
+
+    transient Object getReference() {
+        ref ? crmCoreService.getReference(ref) : null
+    }
+
     def beforeValidate() {
         if (!number) {
             number = getNextSequenceNumber()
         }
+    }
+
+    // Lazy injection of service.
+    private def getCrmCoreService() {
+        if (_crmCoreService == null) {
+            synchronized (this) {
+                if (_crmCoreService == null) {
+                    _crmCoreService = this.getDomainClass().getGrailsApplication().getMainContext().getBean('crmCoreService')
+                }
+            }
+        }
+        _crmCoreService
     }
 
     private Map<String, Object> getSelfProperties(List<String> props) {
@@ -100,6 +126,10 @@ class CrmProject {
         if (address != null) {
             map.address = address.getDao()
         }
+        // Removed due to performance impact and lack of requirements.
+        //if(ref != null) {
+        //    map.reference = getReference().getDao() // TODO No interface
+        //}
         return map
     }
 
