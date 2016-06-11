@@ -16,6 +16,7 @@ class CrmProject {
 
     private def _crmCoreService
 
+    CrmProject parent
     String number
     String name
     String description
@@ -29,9 +30,12 @@ class CrmProject {
 
     CrmEmbeddedAddress address
 
-    static hasMany = [roles: CrmProjectRole]
+    static hasMany = [children: CrmProject, roles: CrmProjectRole]
+
+    static mappedBy = [children: 'parent']
 
     static constraints = {
+        parent(nullable: true)
         number(maxSize: 20, blank: false, unique: 'tenantId')
         name(maxSize: 80, blank: false)
         description(maxSize: 2000, nullable: true, widget: 'textarea')
@@ -54,7 +58,7 @@ class CrmProject {
         ref index: 'crm_project_ref_idx'
     }
 
-    static transients = ['customer', 'contact', 'reference', 'dao']
+    static transients = ['customer', 'contact', 'reference', 'active', 'dao']
 
     static taggable = true
     static attachmentable = true
@@ -63,6 +67,7 @@ class CrmProject {
     static auditable = true
 
     static final List<String> BIND_WHITELIST = [
+            'parent',
             'number',
             'name',
             'description',
@@ -89,6 +94,10 @@ class CrmProject {
 
     transient Object getReference() {
         ref ? crmCoreService.getReference(ref) : null
+    }
+
+    transient boolean isActive() {
+        status?.isActive()
     }
 
     def beforeValidate() {
@@ -125,6 +134,9 @@ class CrmProject {
         map.status = status.dao
         if (address != null) {
             map.address = address.getDao()
+        }
+        if (parent != null) {
+            map.parent = parent.getDao()
         }
         // Removed due to performance impact and lack of requirements.
         //if(ref != null) {

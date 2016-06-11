@@ -18,6 +18,7 @@ class CrmProjectService {
     def crmCoreService
     def crmSecurityService
     def crmContactService
+    def sequenceGeneratorService
     def crmTagService
     def messageSource
     def grailsWebDataBinder
@@ -31,6 +32,8 @@ class CrmProjectService {
         TenantUtils.withTenant(tenant.id) {
 
             crmTagService.createTag(name: CrmProject.name, multiple: true)
+
+            sequenceGeneratorService.initSequence(CrmProject, null, tenant.id, null, "%s")
 
             // Create default project statuses.
             createProjectStatus([orderIndex: 10, param: "1", name: getStatusName('1', 'Planning', locale)], true)
