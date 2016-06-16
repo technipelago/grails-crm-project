@@ -360,6 +360,18 @@ class CrmProjectService {
         return m
     }
 
+    String deleteProject(CrmProject crmProject) {
+        def tombstone = crmProject.toString()
+        def id = crmProject.id
+        def tenant = crmProject.tenantId
+        def username = crmSecurityService.currentUser?.username
+        event(for: "crmProject", topic: "delete", fork: false, data: [id: id, tenant: tenant, user: username, name: tombstone])
+        crmProject.delete(flush: true)
+        log.debug "Deleted project #$id in tenant $tenant \"${tombstone}\""
+        event(for: "crmProject", topic: "deleted", data: [id: id, tenant: tenant, user: username, name: tombstone])
+        return tombstone
+    }
+
     CrmProjectRole addRole(CrmProject project, CrmContact contact, Object role, String description = null) {
         def type
         if (role instanceof CrmProjectRoleType) {
