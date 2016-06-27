@@ -183,10 +183,19 @@ class CrmProjectService {
         }
 
         // TODO this will find any project role, not just customer.
-        if (query.customer) {
+        def customer = query.customer
+        if (customer) {
             roles {
-                contact {
-                    ilike('name', SearchUtils.wildcard(query.customer))
+                if(customer instanceof CrmContact) {
+                    eq('contact', customer)
+                } else if(customer instanceof Number) {
+                    contact {
+                        eq('id', customer)
+                    }
+                } else {
+                    contact {
+                        ilike('name', SearchUtils.wildcard(customer.toString()))
+                    }
                 }
             }
         }
