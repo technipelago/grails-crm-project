@@ -5,6 +5,7 @@ import grails.plugins.crm.core.AuditEntity
 import grails.plugins.crm.core.CrmEmbeddedAddress
 import grails.plugins.crm.core.TenantEntity
 import grails.plugins.sequence.SequenceEntity
+import grails.util.Holders
 
 /**
  * Created by goran on 2016-04-20.
@@ -23,6 +24,8 @@ class CrmProject {
     CrmProjectStatus status
     String username
     String ref
+    String currency
+    Double value
     java.sql.Date date1
     java.sql.Date date2
     java.sql.Date date3
@@ -47,6 +50,8 @@ class CrmProject {
         date3(nullable: true)
         date4(nullable: true)
         address(nullable: true)
+        currency(maxSize: 4, blank: false)
+        value(min: -999999999d, max: 999999999d, scale: 2)
     }
 
     static embedded = ['address']
@@ -73,6 +78,8 @@ class CrmProject {
             'description',
             'status',
             'username',
+            'currency',
+            'value',
             'date1',
             'date2',
             'date3',
@@ -104,6 +111,26 @@ class CrmProject {
         if (!number) {
             number = getNextSequenceNumber()
         }
+        if(! currency) {
+            currency = Holders.getConfig().crm.currency.default ?: 'EUR'
+        }
+
+        value = calculateAmount()
+    }
+
+    protected Double calculateAmount() {
+        Double sum
+        // If we have no items we just return whatever in value.
+        // This way we can have a project without items.
+        if(children == null || children.isEmpty()) {
+            sum = this.value ?: 0
+        } else {
+            sum = 0
+            for (item in children) {
+                sum += (item.value ?: 0)
+            }
+        }
+        sum
     }
 
     // Lazy injection of service.
