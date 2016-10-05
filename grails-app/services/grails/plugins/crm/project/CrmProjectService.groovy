@@ -14,7 +14,6 @@ import java.text.DecimalFormat
  */
 class CrmProjectService {
 
-    def grailsApplication
     def crmCoreService
     def crmSecurityService
     def crmContactService
@@ -25,7 +24,6 @@ class CrmProjectService {
 
     @Listener(namespace = "crmProject", topic = "enableFeature")
     def enableFeature(event) {
-        println "crmProject.enableFeature $event"
         // event = [feature: feature, tenant: tenant, role:role, expires:expires]
         def tenant = crmSecurityService.getTenantInfo(event.tenant)
         def locale = tenant.locale
@@ -37,13 +35,17 @@ class CrmProjectService {
 
             // Create default project statuses.
             createProjectStatus([orderIndex: 10, param: "1", name: getStatusName('1', 'Planning', locale)], true)
+            createProjectStatus([orderIndex: 30, param: "3", name: getStatusName('3', 'Blocked', locale)], true)
             createProjectStatus([orderIndex: 50, param: "5", name: getStatusName('5', 'Active', locale)], true)
             createProjectStatus([orderIndex: 70, param: "7", name: getStatusName('7', 'Finished', locale)], true)
             createProjectStatus([orderIndex: 90, param: "9", name: getStatusName('9', 'Archived', locale)], true)
 
             createProjectRoleType(name: messageSource.getMessage("crmProjectRoleType.name.customer", null, "Customer", locale), param: "customer", true)
             createProjectRoleType(name: messageSource.getMessage("crmProjectRoleType.name.contact", null, "Contact", locale), param: "contact", true)
+            createProjectRoleType(name: messageSource.getMessage("crmProjectRoleType.name.supplier", null, "Supplier", locale), param: "supplier", true)
             createProjectRoleType(name: messageSource.getMessage("crmProjectRoleType.name.manager", null, "Manager", locale), param: "manager", true)
+            createProjectRoleType(name: messageSource.getMessage("crmProjectRoleType.name.engineer", null, "Engineer", locale), param: "engineer", true)
+            createProjectRoleType(name: messageSource.getMessage("crmProjectRoleType.name.consultant", null, "Consultant", locale), param: "consultant", true)
         }
     }
 
@@ -173,6 +175,16 @@ class CrmProjectService {
         if (query.name) {
             ilike('name', SearchUtils.wildcard(query.name))
         }
+
+        if (query.parent) {
+            parent {
+                or {
+                    eq('number', query.parent)
+                    ilike('name', SearchUtils.wildcard(query.parent))
+                }
+            }
+        }
+
         if (query.username) {
             ilike('username', SearchUtils.wildcard(query.username))
         }
@@ -510,15 +522,16 @@ class CrmProjectService {
         def currentUser = crmSecurityService.getUserInfo()
 
         try {
-            bindDate(crmProject, 'date1', params.remove('date1'), currentUser?.timezone)
-            bindDate(crmProject, 'date2', params.remove('date2'), currentUser?.timezone)
-            bindDate(crmProject, 'date3', params.remove('date3'), currentUser?.timezone)
-            bindDate(crmProject, 'date4', params.remove('date4'), currentUser?.timezone)
+            bindDate(crmProject, 'date1', params.date1, currentUser?.timezone)
+            bindDate(crmProject, 'date2', params.date2, currentUser?.timezone)
+            bindDate(crmProject, 'date3', params.date3, currentUser?.timezone)
+            bindDate(crmProject, 'date4', params.date4, currentUser?.timezone)
         } catch (CrmValidationException e) {
             throw new CrmValidationException(e.message, crmProject, company, contact)
         }
 
-        grailsWebDataBinder.bind(crmProject, params as SimpleMapDataBindingSource, null, CrmProject.BIND_WHITELIST, null, null)
+        grailsWebDataBinder.bind(crmProject, params as SimpleMapDataBindingSource, null,
+                CrmProject.BIND_WHITELIST, ['date1', 'date2', 'date3', 'date4'], null)
 
         if (!crmProject.status) {
             crmProject.status = CrmProject.withNewSession {
@@ -561,6 +574,26 @@ class CrmProjectService {
             crmProject.setReference(params.reference)
         }
 
+        // Bind items.
+        if(params.items instanceof List) {
+            for(row in params.items) {
+                def item = row.id ? CrmProjectItem.get(row.id) : new CrmProjectItem(project: crmProject)
+                grailsWebDataBinder.bind(item, row as SimpleMapDataBindingSource, null, CrmProjectItem.BIND_WHITELIST, null, null)
+                if(item.id) {
+                    if(item.isEmpty()) {
+                        crmProject.removeFromItems(item)
+                        item.delete()
+                    } else {
+                        item.save()
+                    }
+                } else if(!item.hasErrors() && ! item.isEmpty()) {
+                    crmProject.addToItems(item)
+                }
+            }
+        } else {
+            bindItems(crmProject, params)
+        }
+
         if (crmProject.save()) {
             return crmProject
         }
@@ -582,6 +615,46 @@ class CrmProjectService {
             }
         } else {
             target[property] = null
+        }
+    }
+
+    private void bindItems(CrmProject crmProject, Map params) {
+        // This is a workaround for Grails 2.4.4 data binding that does not insert a new CrmProjectItem when 'id' is null.
+        // I consider this to be a bug in Grails 2.4.4 but I'm not sure how it's supposed to work with Set.
+        // This workaround was not needed in Grails 2.2.4.
+        int i = 0
+        int miss = 0
+        while(miss < 10) {
+            def a = params["items[$i]".toString()]
+            if(a?.id) {
+                def item = CrmProjectItem.get(a.id)
+                if(crmProject.id != item?.projectId) {
+                    throw new RuntimeException("CrmProjectItem [${item.projectId}] is not associated with CrmProject [${crmProject.id}]")
+                }
+                grailsWebDataBinder.bind(item, a as SimpleMapDataBindingSource, null, CrmProjectItem.BIND_WHITELIST, null, null)
+                if(item.isEmpty()) {
+                    crmProject.removeFromItems(item)
+                    item.delete()
+                } else {
+                    item.save()
+                }
+            } else if(a) {
+                def item = new CrmProjectItem(project: crmProject)
+                grailsWebDataBinder.bind(item, a as SimpleMapDataBindingSource, null, CrmProjectItem.BIND_WHITELIST, null, null)
+                if(! item.isEmpty()) {
+                    if(item.validate()) {
+                        crmProject.addToItems(item)
+                    } else {
+                        for(error in item.errors.allErrors) {
+                            crmProject.errors.reject(error.getDefaultMessage())
+                        }
+                        //crmProject.errors.addAllErrors(item.errors)
+                    }
+                }
+            } else {
+                miss++
+            }
+            i++
         }
     }
 

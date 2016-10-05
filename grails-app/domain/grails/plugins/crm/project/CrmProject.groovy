@@ -25,7 +25,8 @@ class CrmProject {
     String username
     String ref
     String currency
-    Double value
+    Double budget
+    Double actual
     java.sql.Date date1
     java.sql.Date date2
     java.sql.Date date3
@@ -33,7 +34,7 @@ class CrmProject {
 
     CrmEmbeddedAddress address
 
-    static hasMany = [children: CrmProject, roles: CrmProjectRole]
+    static hasMany = [children: CrmProject, items: CrmProjectItem, roles: CrmProjectRole]
 
     static mappedBy = [children: 'parent']
 
@@ -51,19 +52,21 @@ class CrmProject {
         date4(nullable: true)
         address(nullable: true)
         currency(maxSize: 4, blank: false)
-        value(min: -999999999d, max: 999999999d, scale: 2)
+        budget(min: -999999999d, max: 999999999d, scale: 2)
+        actual(min: -999999999d, max: 999999999d, scale: 2)
     }
 
     static embedded = ['address']
 
     static mapping = {
         sort 'number': 'asc'
+        items sort: 'orderIndex'
         number index: 'crm_project_number_idx'
         name index: 'crm_project_name_idx'
         ref index: 'crm_project_ref_idx'
     }
 
-    static transients = ['customer', 'contact', 'reference', 'active', 'dao']
+    static transients = ['customer', 'contact', 'reference', 'active', 'diff', 'budgetEditable', 'dao']
 
     static taggable = true
     static attachmentable = true
@@ -79,7 +82,8 @@ class CrmProject {
             'status',
             'username',
             'currency',
-            'value',
+            'budget',
+            'actual',
             'date1',
             'date2',
             'date3',
@@ -107,6 +111,14 @@ class CrmProject {
         status?.isActive()
     }
 
+    transient Double getDiff() {
+        calculateBudget() - calculateActual()
+    }
+
+    transient boolean isBudgetEditable() {
+        !(items)
+    }
+
     def beforeValidate() {
         if (!number) {
             number = getNextSequenceNumber()
@@ -115,20 +127,52 @@ class CrmProject {
             currency = Holders.getConfig().crm.currency.default ?: 'EUR'
         }
 
-        value = calculateAmount()
+        budget = calculateBudget()
+        actual = calculateActual()
     }
 
-    protected Double calculateAmount() {
+    protected Double calculateBudget() {
         Double sum
-        // If we have no items we just return whatever in value.
+        // If we have no items we just return whatever in budget.
         // This way we can have a project without items.
-        if(children == null || children.isEmpty()) {
-            sum = this.value ?: 0
+        if(items == null || items.isEmpty()) {
+            sum = this.budget ?: 0
         } else {
             sum = 0
-            for (item in children) {
-                sum += (item.value ?: 0)
+            for (item in items) {
+                sum += (item.budget ?: 0)
             }
+        }
+        sum
+    }
+
+    protected Double calculateActual() {
+        Double sum
+        // If we have no items we just return whatever in actual.
+        // This way we can have a project without items.
+        if(items == null || items.isEmpty()) {
+            sum = this.actual ?: 0
+        } else {
+            sum = 0
+            for (item in items) {
+                sum += (item.actual ?: 0)
+            }
+        }
+        sum
+    }
+
+    protected Double calculateTotalBudget() {
+        Double sum = calculateBudget()
+        for (child in children) {
+            sum += child.calculateBudget()
+        }
+        sum
+    }
+
+    protected Double calculateTotalActual() {
+        Double sum = calculateActual()
+        for (child in children) {
+            sum += child.calculateActual()
         }
         sum
     }
