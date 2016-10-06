@@ -114,15 +114,46 @@ class CrmProjectService {
     synchronized PagedResultList<CrmProject> list(Map query, Map params) {
         def result
         try {
+            Set<Long> reduce = [] as Set
+            if (query.tags) {
+                def tagged = crmTagService.findAllIdByTag(CrmProject, query.tags)
+                if (tagged) {
+                    reduce.addAll(tagged)
+                } else {
+                    reduce = NO_RESULT
+                }
+            }
+
+            if (query.ref) {
+                def refIds = referenceQuery('ref', query.ref)
+                if (refIds) {
+                    if(reduce) {
+                        reduce.retainAll(refIds)
+                    } else {
+                        reduce.addAll(refIds)
+                    }
+                    if (reduce.isEmpty()) {
+                        reduce = NO_RESULT
+                    }
+                } else {
+                    reduce = NO_RESULT
+                }
+            }
+
+            if (reduce == NO_RESULT) {
+                // No need to execute main query, result is already given (nothing, nada, empty, zero).
+                return new PagedResultList<CrmProject>([])
+            }
+
             def totalCount = CrmProject.createCriteria().get {
                 projectCriteria.delegate = delegate
-                projectCriteria(query, true, null)
+                projectCriteria(query, reduce, true, null)
             }
             if (!params.sort) params.sort = 'number'
             if (!params.order) params.order = 'asc'
             def ids = CrmProject.createCriteria().list() {
                 projectCriteria.delegate = delegate
-                projectCriteria(query, false, params.sort)
+                projectCriteria(query, reduce, false, params.sort)
                 if (params.max != null) {
                     maxResults(params.max as Integer)
                 }
@@ -139,21 +170,29 @@ class CrmProjectService {
         return result
     }
 
-    private static final Set<Long> NO_RESULT = [0L] as Set // A query value that will find nothing
-
-    private Closure projectCriteria = { query, count, sort ->
-        def locale = new Locale("sv", "SE")
-        def timezone = TimeZone.getTimeZone("MET")
-
-        Set<Long> ids = [] as Set
-        if (query.tags) {
-            def tagged = crmTagService.findAllIdByTag(CrmProject, query.tags)
-            if (tagged) {
-                ids.addAll(tagged)
-            } else {
-                ids = NO_RESULT
+    private Collection<Long> referenceQuery(String propertyName, String query) {
+        def tenant = TenantUtils.tenant
+        def refs = event(for: "crmProject", topic: "query",
+                data: [tenant: tenant, property: propertyName, query: query],
+                fork: false).values.flatten()
+        def result
+        if (refs) {
+            result = CrmProject.createCriteria().list() {
+                projections {
+                    property('id')
+                }
+                eq('tenantId', tenant)
+                inList('ref', refs)
             }
         }
+        result
+    }
+
+    private static final Set<Long> NO_RESULT = [0L] as Set // A query value that will find nothing
+
+    private Closure projectCriteria = { query, ids, count, sort ->
+        def locale = query.locale ?: new Locale("sv", "SE")
+        def timezone = query.timezone ?: TimeZone.getTimeZone("MET")
 
         projections {
             if (count) {
@@ -198,9 +237,9 @@ class CrmProjectService {
         def customer = query.customer
         if (customer) {
             roles {
-                if(customer instanceof CrmContact) {
+                if (customer instanceof CrmContact) {
                     eq('contact', customer)
-                } else if(customer instanceof Number) {
+                } else if (customer instanceof Number) {
                     contact {
                         eq('id', customer)
                     }
@@ -354,7 +393,7 @@ class CrmProjectService {
         if (!m.date1) {
             m.date1 = new java.sql.Date(System.currentTimeMillis())
         }
-        if(params.reference) {
+        if (params.reference) {
             m.setReference(params.reference)
         }
         if (params.customer) {
@@ -570,23 +609,23 @@ class CrmProjectService {
             }
         }
 
-        if(params.reference) {
+        if (params.reference) {
             crmProject.setReference(params.reference)
         }
 
         // Bind items.
-        if(params.items instanceof List) {
-            for(row in params.items) {
+        if (params.items instanceof List) {
+            for (row in params.items) {
                 def item = row.id ? CrmProjectItem.get(row.id) : new CrmProjectItem(project: crmProject)
                 grailsWebDataBinder.bind(item, row as SimpleMapDataBindingSource, null, CrmProjectItem.BIND_WHITELIST, null, null)
-                if(item.id) {
-                    if(item.isEmpty()) {
+                if (item.id) {
+                    if (item.isEmpty()) {
                         crmProject.removeFromItems(item)
                         item.delete()
                     } else {
                         item.save()
                     }
-                } else if(!item.hasErrors() && ! item.isEmpty()) {
+                } else if (!item.hasErrors() && !item.isEmpty()) {
                     crmProject.addToItems(item)
                 }
             }
@@ -624,28 +663,28 @@ class CrmProjectService {
         // This workaround was not needed in Grails 2.2.4.
         int i = 0
         int miss = 0
-        while(miss < 10) {
+        while (miss < 10) {
             def a = params["items[$i]".toString()]
-            if(a?.id) {
+            if (a?.id) {
                 def item = CrmProjectItem.get(a.id)
-                if(crmProject.id != item?.projectId) {
+                if (crmProject.id != item?.projectId) {
                     throw new RuntimeException("CrmProjectItem [${item.projectId}] is not associated with CrmProject [${crmProject.id}]")
                 }
                 grailsWebDataBinder.bind(item, a as SimpleMapDataBindingSource, null, CrmProjectItem.BIND_WHITELIST, null, null)
-                if(item.isEmpty()) {
+                if (item.isEmpty()) {
                     crmProject.removeFromItems(item)
                     item.delete()
                 } else {
                     item.save()
                 }
-            } else if(a) {
+            } else if (a) {
                 def item = new CrmProjectItem(project: crmProject)
                 grailsWebDataBinder.bind(item, a as SimpleMapDataBindingSource, null, CrmProjectItem.BIND_WHITELIST, null, null)
-                if(! item.isEmpty()) {
-                    if(item.validate()) {
+                if (!item.isEmpty()) {
+                    if (item.validate()) {
                         crmProject.addToItems(item)
                     } else {
-                        for(error in item.errors.allErrors) {
+                        for (error in item.errors.allErrors) {
                             crmProject.errors.reject(error.getDefaultMessage())
                         }
                         //crmProject.errors.addAllErrors(item.errors)
