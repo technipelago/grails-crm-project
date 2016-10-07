@@ -609,8 +609,8 @@ class CrmProjectService {
             }
         }
 
-        if (params.reference) {
-            crmProject.setReference(params.reference)
+        if (params.reference || params.ref) {
+            crmProject.setReference(params.reference ?: params.ref)
         }
 
         // Bind items.
