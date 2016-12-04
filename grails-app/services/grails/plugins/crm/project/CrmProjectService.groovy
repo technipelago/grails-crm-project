@@ -323,33 +323,49 @@ class CrmProjectService {
             }
         }
 
+        if(query.reference) {
+            eq('ref', crmCoreService.getReferenceIdentifier(query.reference))
+        }
+
         if (query.username) {
             ilike('username', SearchUtils.wildcard(query.username))
         }
 
         if (query.status) {
-            status {
-                or {
-                    eq('param', query.status)
-                    ilike('name', SearchUtils.wildcard(query.status))
+            if(query.status instanceof CrmProjectStatus) {
+                eq('status', query.status)
+            } else {
+                status {
+                    or {
+                        eq('param', query.status)
+                        ilike('name', SearchUtils.wildcard(query.status))
+                    }
                 }
             }
         }
 
         if (query.type) {
-            type {
-                or {
-                    eq('param', query.type)
-                    ilike('name', SearchUtils.wildcard(query.type))
+            if(query.type instanceof CrmProjectType) {
+                eq('type', query.type)
+            } else {
+                type {
+                    or {
+                        eq('param', query.type)
+                        ilike('name', SearchUtils.wildcard(query.type))
+                    }
                 }
             }
         }
 
         if (query.category) {
-            category {
-                or {
-                    eq('param', query.category)
-                    ilike('name', SearchUtils.wildcard(query.category))
+            if(query.category instanceof CrmProjectCategory) {
+                eq('category', query.category)
+            } else {
+                category {
+                    or {
+                        eq('param', query.category)
+                        ilike('name', SearchUtils.wildcard(query.category))
+                    }
                 }
             }
         }
