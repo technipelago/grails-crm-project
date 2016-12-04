@@ -14,6 +14,8 @@ class CrmProjectServiceSpec extends IntegrationSpec {
     def "create project"() {
         given:
         def status = crmProjectService.createProjectStatus(name: "Negotiation", param: "3", true)
+        def type = crmProjectService.createProjectType(name: "Test", param: "test", true)
+        def category = crmProjectService.createProjectCategory(name: "Integration", param: "integration-test", true)
 
         when:
         def project1 = crmProjectService.createProject(name: "Test project", status: status, true)
@@ -22,6 +24,8 @@ class CrmProjectServiceSpec extends IntegrationSpec {
         then:
         project1.ident()
         project1.customer == null
+        project1.type == null
+        project1.category == null
 
         when:
         def company = crmContactService.createRelationType(name: "Company", true)
@@ -37,6 +41,8 @@ class CrmProjectServiceSpec extends IntegrationSpec {
         contact.ident()
 
         when:
+        project1.type = type
+        project1.category = category
         crmProjectService.addRole(project1, technipelago, customer)
         crmProjectService.addRole(project1, goran, "contact", "Nice guy")
         project1.save(flush: true)
@@ -44,6 +50,9 @@ class CrmProjectServiceSpec extends IntegrationSpec {
         then:
         project1.customer.name == "Technipelago AB"
         project1.contact.name == "Goran Ehrsson"
+        project1.type.param == "test"
+        project1.category.param == "integration-test"
+
         crmProjectService.findProjectsByContact(technipelago).iterator().next().toString() == "Test project"
         crmProjectService.findProjectsByContact(technipelago, "bogusRole").isEmpty()
         crmProjectService.findProjectsByContact(goran).iterator().next().toString() == "Test project"

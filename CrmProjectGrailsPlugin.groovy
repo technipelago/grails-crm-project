@@ -1,6 +1,6 @@
 class CrmProjectGrailsPlugin {
     def groupId = ""
-    def version = "2.4.0"
+    def version = "2.4.1-SNAPSHOT"
     def grailsVersion = "2.2 > *"
     def dependsOn = [:]
     def pluginExcludes = [
@@ -28,7 +28,7 @@ Project management for GR8 CRM applications.
                 guest "crmProject:index,list,show,createFavorite,deleteFavorite,clearQuery,autocompleteUsername,autocompleteContact"
                 partner "crmProject:index,list,show,createFavorite,deleteFavorite,clearQuery,autocompleteUsername,autocompleteContact"
                 user "crmProject:*"
-                admin "crmProject,crmProjectStatus,crmProjectRoleType:*"
+                admin "crmProject,crmProjectStatus,crmProjectType,crmProjectCategory,crmProjectRoleType:*"
             }
             statistics { tenant ->
                 def total = CrmProject.countByTenantId(tenant)

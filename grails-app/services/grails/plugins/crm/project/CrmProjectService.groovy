@@ -53,6 +53,13 @@ class CrmProjectService {
         messageSource.getMessage("crmProjectStatus.name." + key, null, label, locale)
     }
 
+    // CrmProjectStatus
+    //
+    CrmProjectStatus getProjectStatus(Long id) {
+        def m = CrmProjectStatus.get(id)
+        m?.tenantId == TenantUtils.tenant ? m : null
+    }
+
     CrmProjectStatus getProjectStatus(String param) {
         CrmProjectStatus.findByParamAndTenantId(param, TenantUtils.tenant, [cache: true])
     }
@@ -82,6 +89,98 @@ class CrmProjectService {
 
     List<CrmProjectStatus> listProjectStatus(String name, Map params = [:]) {
         CrmProjectStatus.createCriteria().list(params) {
+            eq('tenantId', TenantUtils.tenant)
+            if (name) {
+                or {
+                    ilike('name', SearchUtils.wildcard(name))
+                    eq('param', name)
+                }
+            }
+        }
+    }
+
+    // CrmProjectType
+    //
+    CrmProjectType getProjectType(Long id) {
+        def m = CrmProjectType.get(id)
+        m?.tenantId == TenantUtils.tenant ? m : null
+    }
+
+    CrmProjectType getProjectType(String param) {
+        CrmProjectType.findByParamAndTenantId(param, TenantUtils.tenant, [cache: true])
+    }
+
+    CrmProjectType createProjectType(params, boolean save = false) {
+        if (!params.param) {
+            params.param = StringUtils.abbreviate(params.name?.toLowerCase(), 20)
+        }
+        def tenant = TenantUtils.tenant
+        def m = CrmProjectType.findByParamAndTenantId(params.param, tenant)
+        if (!m) {
+            m = new CrmProjectType()
+            grailsWebDataBinder.bind(m, params as SimpleMapDataBindingSource, null, CrmProjectType.BIND_WHITELIST, null, null)
+            m.tenantId = tenant
+            if (params.enabled == null) {
+                m.enabled = true
+            }
+            if (save) {
+                m.save()
+            } else {
+                m.validate()
+                m.clearErrors()
+            }
+        }
+        return m
+    }
+
+    List<CrmProjectType> listProjectType(String name, Map params = [:]) {
+        CrmProjectType.createCriteria().list(params) {
+            eq('tenantId', TenantUtils.tenant)
+            if (name) {
+                or {
+                    ilike('name', SearchUtils.wildcard(name))
+                    eq('param', name)
+                }
+            }
+        }
+    }
+
+    // CrmProjectCategory
+    //
+    CrmProjectCategory getProjectCategory(Long id) {
+        def m = CrmProjectCategory.get(id)
+        m?.tenantId == TenantUtils.tenant ? m : null
+    }
+
+    CrmProjectCategory getProjectCategory(String param) {
+        CrmProjectCategory.findByParamAndTenantId(param, TenantUtils.tenant, [cache: true])
+    }
+
+    CrmProjectCategory createProjectCategory(params, boolean save = false) {
+        if (!params.param) {
+            params.param = StringUtils.abbreviate(params.name?.toLowerCase(), 20)
+        }
+        def tenant = TenantUtils.tenant
+        def m = CrmProjectCategory.findByParamAndTenantId(params.param, tenant)
+        if (!m) {
+            m = new CrmProjectCategory()
+            grailsWebDataBinder.bind(m, params as SimpleMapDataBindingSource, null, CrmProjectCategory.BIND_WHITELIST, null, null)
+            m.tenantId = tenant
+            if (params.enabled == null) {
+                m.enabled = true
+            }
+            if (save) {
+                m.save()
+            } else {
+                m.validate()
+                m.clearErrors()
+            }
+        }
+        return m
+    }
+
+    List<CrmProjectCategory> listProjectCategory(String name, Map params = [:]) {
+        CrmProjectCategory.createCriteria().list(params) {
             eq('tenantId', TenantUtils.tenant)
             if (name) {
                 or {
@@ -227,9 +326,31 @@ class CrmProjectService {
         if (query.username) {
             ilike('username', SearchUtils.wildcard(query.username))
         }
+
         if (query.status) {
             status {
-                ilike('name', SearchUtils.wildcard(query.status))
+                or {
+                    eq('param', query.status)
+                    ilike('name', SearchUtils.wildcard(query.status))
+                }
+            }
+        }
+
+        if (query.type) {
+            type {
+                or {
+                    eq('param', query.type)
+                    ilike('name', SearchUtils.wildcard(query.type))
+                }
+            }
+        }
+
+        if (query.category) {
+            category {
+                or {
+                    eq('param', query.category)
+                    ilike('name', SearchUtils.wildcard(query.category))
+                }
             }
         }
 

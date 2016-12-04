@@ -22,6 +22,8 @@ class CrmProject {
     String name
     String description
     CrmProjectStatus status
+    CrmProjectType type
+    CrmProjectCategory category
     String username
     String ref
     String currency
@@ -44,6 +46,8 @@ class CrmProject {
         name(maxSize: 80, blank: false)
         description(maxSize: 2000, nullable: true, widget: 'textarea')
         status()
+        type(nullable: true)
+        category(nullable: true)
         username(maxSize: 80, nullable: true)
         ref(maxSize: 80, nullable: true)
         date1(nullable: true)
@@ -80,6 +84,8 @@ class CrmProject {
             'name',
             'description',
             'status',
+            'type',
+            'category',
             'username',
             'currency',
             'budget',
