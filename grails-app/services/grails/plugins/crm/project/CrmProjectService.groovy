@@ -6,6 +6,7 @@ import grails.plugins.crm.core.*
 import grails.plugins.selection.Selectable
 import org.apache.commons.lang.StringUtils
 import org.grails.databinding.SimpleMapDataBindingSource
+import org.grails.plugin.platform.events.EventMessage
 
 import java.text.DecimalFormat
 
@@ -21,6 +22,10 @@ class CrmProjectService {
     def crmTagService
     def messageSource
     def grailsWebDataBinder
+
+    private String getStatusName(String key, String label, Locale locale) {
+        messageSource.getMessage("crmProjectStatus.name." + key, null, label, locale)
+    }
 
     @Listener(namespace = "crmProject", topic = "enableFeature")
     def enableFeature(event) {
@@ -49,8 +54,27 @@ class CrmProjectService {
         }
     }
 
-    private String getStatusName(String key, String label, Locale locale) {
-        messageSource.getMessage("crmProjectStatus.name." + key, null, label, locale)
+    @Listener(namespace = '*', topic = 'deleted')
+    def somethingWasDeleted(EventMessage  event) {
+        Map data = (Map)event.data
+        crmSecurityService.runAs(data.user, data.tenant) {
+            def domain = event.namespace
+            def ref = "$domain@${data.id}".toString()
+            def projects = CrmProject.createCriteria().list() {
+                eq('tenantId', data.tenant)
+                eq('ref', ref)
+            }
+            log.info "Disconnecting ${projects.size()} projects from $ref"
+            for(project in projects) {
+                try {
+                    project.ref = null
+                    project.save()
+                    log.debug "Project [$project] disconnected from $ref"
+                } catch(Exception e) {
+                    log.error("Could not disconnect project [$project] from $ref", e)
+                }
+            }
+        }
     }
 
     // CrmProjectStatus
