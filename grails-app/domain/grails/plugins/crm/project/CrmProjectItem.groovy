@@ -8,12 +8,13 @@ import grails.plugins.crm.core.TenantUtils
 class CrmProjectItem {
 
     public static final List<String> BIND_WHITELIST = [
-            'orderIndex', 'name', 'comment', 'budget', 'actual', 'vat'
+            'orderIndex', 'name', 'comment', 'category', 'budget', 'actual', 'vat'
     ].asImmutable()
 
     Integer orderIndex
     String name
     String comment
+    CrmProjectCategory category
     Double budget
     Double actual
     Double vat
@@ -24,12 +25,13 @@ class CrmProjectItem {
         orderIndex()
         name(maxSize: 255, blank: false)
         comment(maxSize: 255, nullable: true)
+        category(nullable: true)
         budget(nullable: false, min: -9999999d, max: 9999999d, scale: 2)
         actual(nullable: false, min: -9999999d, max: 9999999d, scale: 2)
         vat(nullable: false, min: 0d, max: 1d, scale: 2)
     }
 
-    static transients = ['budgetVAT', 'actualVAT', 'diff', 'diffVAT', 'empty', 'dao']
+    static transients = ['budgetVAT', 'actualVAT', 'diff', 'diffVAT', 'empty', 'dao', 'displayCategory']
 
     def beforeValidate() {
         if (orderIndex == null) {
@@ -77,6 +79,10 @@ class CrmProjectItem {
         return d + (d * v)
     }
 
+    transient CrmProjectCategory getDisplayCategory() {
+        category ?: project?.category
+    }
+
     String toString() {
         "$name"
     }
@@ -90,6 +96,7 @@ class CrmProjectItem {
 
     transient Map<String, Object> getDao() {
         [orderIndex: orderIndex, name: name, comment: comment,
+                category: getDisplayCategory(),
                 budget: budget, actual: actual, vat: vat,
                 budgetVAT: getBudgetVAT(), actualVAT: getActualVAT()]
     }
