@@ -129,6 +129,9 @@ class CrmProject {
         if (!number) {
             number = getNextSequenceNumber()
         }
+        if(! name && type) {
+            name = type.name
+        }
         if(! currency) {
             currency = Holders.getConfig().crm.currency.default ?: 'EUR'
         }
